@@ -1,6 +1,7 @@
 {
   "cloudflare": [
     {
+      "id": "uuid",
       "authentication": {
         "api_token": "api_token_here",
         "api_key": {
@@ -10,28 +11,36 @@
       },
       "zones": [
         {
+          "id": "uuid",
           "zone_id": "your_zone_id_1_here",
+          "domain": "example.com",
           "subdomains": [
             {
               "name": "",
-              "proxied": false
+              "proxied": false,
+              "ttl": null
             },
             {
               "name": "remove_or_replace_with_your_subdomain",
-              "proxied": false
+              "proxied": false,
+              "ttl": null
             }
           ]
         },
         {
+          "id": "uuid",
           "zone_id": "your_zone_id_2_here",
+          "domain": "example.com",
           "subdomains": [
             {
               "name": "subdomain1",
-              "proxied": true
+              "proxied": true,
+              "ttl": 300
             },
             {
               "name": "subdomain2",
-              "proxied": false
+              "proxied": false,
+              "ttl": 300
             }
           ]
         }

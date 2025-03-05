@@ -1,0 +1,272 @@
+{
+	"info": {
+		"_postman_id": "b8f3e8d0-5f1a-4b1c-9e1d-9b9b9b9b9b9b",
+		"name": "Cloudflare Config Manager",
+		"description": "Collection for managing Cloudflare configurations via the API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Accounts",
+			"item": [
+				{
+					"name": "Get All Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts",
+							"host": ["{{base_url}}"],
+							"path": ["accounts"]
+						},
+						"description": "Get all configured Cloudflare accounts"
+					}
+				},
+				{
+					"name": "Add Account (API Token)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"authentication\": {\n    \"api_token\": \"your_api_token_here\"\n  },\n  \"zones\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts",
+							"host": ["{{base_url}}"],
+							"path": ["accounts"]
+						},
+						"description": "Add a new account using API Token authentication"
+					}
+				},
+				{
+					"name": "Add Account (API Key)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"authentication\": {\n    \"api_key\": {\n      \"api_key\": \"your_api_key_here\",\n      \"account_email\": \"your_email@example.com\"\n    }\n  },\n  \"zones\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts",
+							"host": ["{{base_url}}"],
+							"path": ["accounts"]
+						},
+						"description": "Add a new account using API Key authentication"
+					}
+				},
+				{
+					"name": "Add Account (Both Auth Methods)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"authentication\": {\n    \"api_token\": \"your_api_token_here\",\n    \"api_key\": {\n      \"api_key\": \"your_api_key_here\",\n      \"account_email\": \"your_email@example.com\"\n    }\n  },\n  \"zones\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts",
+							"host": ["{{base_url}}"],
+							"path": ["accounts"]
+						},
+						"description": "Add a new account using both authentication methods"
+					}
+				},
+				{
+					"name": "Get Account",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}"]
+						},
+						"description": "Get a specific account by ID"
+					}
+				},
+				{
+					"name": "Update Account",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"authentication\": {\n    \"api_token\": \"updated_api_token_here\"\n  },\n  \"zones\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}"]
+						},
+						"description": "Update an existing account"
+					}
+				},
+				{
+					"name": "Delete Account",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}"]
+						},
+						"description": "Delete an account by ID"
+					}
+				},
+				{
+					"name": "Update Account Authentication",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"api_token\": \"new_api_token_here\",\n  \"api_key\": {\n    \"api_key\": \"new_api_key_here\",\n    \"account_email\": \"new_email@example.com\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/auth",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "auth"]
+						},
+						"description": "Update authentication for a specific account"
+					}
+				}
+			]
+		},
+		{
+			"name": "Zones",
+			"item": [
+				{
+					"name": "Get All Zones",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/zones",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "zones"]
+						},
+						"description": "Get all zones for an account"
+					}
+				},
+				{
+					"name": "Add Zone",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"zone_id\": \"0123456789abcdef0123456789abcdef\",\n  \"subdomains\": [\n    {\n      \"name\": \"subdomain1\",\n      \"proxied\": true\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/zones",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "zones"]
+						},
+						"description": "Add a new zone to an account"
+					}
+				},
+				{
+					"name": "Get Zone",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/zones/{{zone_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "zones", "{{zone_id}}"]
+						},
+						"description": "Get a specific zone by ID"
+					}
+				},
+				{
+					"name": "Update Zone",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"zone_id\": \"0123456789abcdef0123456789abcdef\",\n  \"subdomains\": [\n    {\n      \"name\": \"updated-subdomain\",\n      \"proxied\": false\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/zones/{{zone_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "zones", "{{zone_id}}"]
+						},
+						"description": "Update an existing zone"
+					}
+				},
+				{
+					"name": "Delete Zone",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/{{account_id}}/zones/{{zone_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["accounts", "{{account_id}}", "zones", "{{zone_id}}"]
+						},
+						"description": "Delete a zone by ID"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string",
+			"description": "Base URL for the API"
+		},
+		{
+			"key": "account_id",
+			"value": "your_account_id",
+			"type": "string",
+			"description": "ID of the Cloudflare account"
+		},
+		{
+			"key": "zone_id",
+			"value": "your_zone_id",
+			"type": "string",
+			"description": "ID of the zone"
+		}
+	]
+}

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Config Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">
+                    <i class="bi bi-cloud"></i> Cloudflare DDNS Config Manager
+                </a>
+            </div>
+        </nav>
+
+        <div class="container-fluid mt-4">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Accounts</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                <a v-for="account in accounts" 
+                                   :key="account.id" 
+                                   @click="selectAccount(account)"
+                                   :class="['list-group-item', 'list-group-item-action', {'active': selectedAccount && selectedAccount.id === account.id}]">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-person-circle me-2"></i>
+                                            {{ getAccountName(account) }}
+                                        </div>
+                                        <button @click.stop="deleteAccount(account)" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="p-3">
+                                <button @click="showAddAccountModal" class="btn btn-primary w-100">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-md-9">
+                    <!-- Account Details -->
+                    <div v-if="selectedAccount" class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Account Details</h5>
+                            <button @click="showEditAccountModal" class="btn btn-sm btn-primary">
+                                <i class="bi bi-pencil me-2"></i>Edit
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6>Authentication</h6>
+                                <div v-if="selectedAccount.authentication.api_token" class="mb-2">
+                                    <strong>API Token:</strong> {{ maskToken(selectedAccount.authentication.api_token) }}
+                                </div>
+                                <div v-if="selectedAccount.authentication.api_key">
+                                    <div class="mb-2">
+                                        <strong>API Key:</strong> {{ maskToken(selectedAccount.authentication.api_key.api_key) }}
+                                    </div>
+                                    <div>
+                                        <strong>Email:</strong> {{ selectedAccount.authentication.api_key.account_email }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Zones -->
+                    <div v-if="selectedAccount" class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Zones</h5>
+                            <button @click="showAddZoneModal" class="btn btn-sm btn-primary">
+                                <i class="bi bi-plus-circle me-2"></i>Add Zone
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div v-for="zone in selectedAccount.zones" :key="zone.id" class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-globe me-2"></i>
+                                        Zone ID: {{ zone.zone_id }}
+                                    </h6>
+                                    <div>
+                                        <button @click="showEditZoneModal(zone)" class="btn btn-sm btn-primary me-2">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button @click="deleteZone(zone)" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Subdomain</th>
+                                                <th>Proxied</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="subdomain in zone.subdomains" :key="subdomain.id">
+                                                <td>{{ subdomain.name }}</td>
+                                                <td>
+                                                    <span :class="['badge', subdomain.proxied ? 'bg-success' : 'bg-secondary']">
+                                                        {{ subdomain.proxied ? 'Yes' : 'No' }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Account Modal -->
+        <div class="modal fade" id="addAccountModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Account</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="addAccount">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="newAccount.useApiToken" id="useApiToken">
+                                    <label class="form-check-label" for="useApiToken">Use API Token</label>
+                                </div>
+                            </div>
+                            <div v-if="newAccount.useApiToken" class="mb-3">
+                                <label class="form-label">API Token</label>
+                                <input type="text" class="form-control" v-model="newAccount.apiToken" required>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="newAccount.useApiKey" id="useApiKey">
+                                    <label class="form-check-label" for="useApiKey">Use API Key</label>
+                                </div>
+                            </div>
+                            <div v-if="newAccount.useApiKey">
+                                <div class="mb-3">
+                                    <label class="form-label">API Key</label>
+                                    <input type="text" class="form-control" v-model="newAccount.apiKey" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Account Email</label>
+                                    <input type="email" class="form-control" v-model="newAccount.email" required>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Add Account</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Zone Modal -->
+        <div class="modal fade" id="addZoneModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Zone</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="addZone">
+                            <div class="mb-3">
+                                <label class="form-label">Zone ID</label>
+                                <input type="text" class="form-control" v-model="newZone.zone_id" required 
+                                       pattern="[a-f0-9]{32}" title="32 character hexadecimal string">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Domain</label>
+                                <input type="text" class="form-control" v-model="newZone.domain" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Subdomains</label>
+                                <div v-for="(subdomain, index) in newZone.subdomains" :key="index" class="mb-2">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" v-model="subdomain.name" 
+                                               placeholder="Subdomain name (e.g., www, @ for root)" required>
+                                        <input type="number" class="form-control" v-model="subdomain.ttl" 
+                                               placeholder="TTL (60-86400)" min="60" max="86400" required>
+                                        <div class="input-group-text">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" v-model="subdomain.proxied">
+                                                <label class="form-check-label">Proxied</label>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-outline-danger" type="button" @click="removeSubdomain(index)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" 
+                                        @click="addSubdomain">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Subdomain
+                                </button>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-secondary me-2" 
+                                        data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Add Zone</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Account Modal -->
+        <div class="modal fade" id="editAccountModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Account</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="updateAccount">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="editAccount.useApiToken" id="editUseApiToken">
+                                    <label class="form-check-label" for="editUseApiToken">Use API Token</label>
+                                </div>
+                            </div>
+                            <div v-if="editAccount.useApiToken" class="mb-3">
+                                <label class="form-label">API Token</label>
+                                <input type="text" class="form-control" v-model="editAccount.apiToken" required>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" v-model="editAccount.useApiKey" id="editUseApiKey">
+                                    <label class="form-check-label" for="editUseApiKey">Use API Key</label>
+                                </div>
+                            </div>
+                            <div v-if="editAccount.useApiKey">
+                                <div class="mb-3">
+                                    <label class="form-label">API Key</label>
+                                    <input type="text" class="form-control" v-model="editAccount.apiKey" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Account Email</label>
+                                    <input type="email" class="form-control" v-model="editAccount.email" required>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Update Account</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Zone Modal -->
+        <div class="modal fade" id="editZoneModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Zone</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="updateZone">
+                            <div class="mb-3">
+                                <label class="form-label">Zone ID</label>
+                                <input type="text" class="form-control" v-model="editZone.zone_id" required 
+                                       pattern="[a-f0-9]{32}" title="32 character hexadecimal string">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Domain</label>
+                                <input type="text" class="form-control" v-model="editZone.domain" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Subdomains</label>
+                                <div v-for="(subdomain, index) in editZone.subdomains" :key="index" class="mb-2">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" v-model="subdomain.name" 
+                                               placeholder="Subdomain name (e.g., www, @ for root)" required>
+                                        <div class="input-group-text">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" v-model="subdomain.proxied">
+                                                <label class="form-check-label">Proxied</label>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-outline-danger" type="button" @click="removeEditSubdomain(index)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" 
+                                        @click="addEditSubdomain">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Subdomain
+                                </button>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-secondary me-2" 
+                                        data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Update Zone</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -144,6 +144,7 @@ def updateRecordForSubDomains(zone_id, base_domain_name, subdomains, ip, option)
         try:
             name = subdomain["name"].lower().strip()
             proxied = subdomain["proxied"]
+            ttl = subdomain["ttl"]
         except:
             name = subdomain
             proxied = option["proxied"]
