@@ -105,12 +105,25 @@ class SubDomain(BaseModel):
 
 class SubDomainCreate(BaseModel):
     model_config = ConfigDict(extra='forbid')
+    
     name: Annotated[str, Field(
         pattern=r"^[@a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$",
         description="Subdomain name, must be a valid domain name. Can include @ for root domain."
     )]
     proxied: bool = Field(default=False, description="Whether to proxy through Cloudflare")
     ttl: int = Field(default=1, ge=60, le=86400, description="TTL for DNS records (60-86400 seconds)")
+
+    @model_validator(mode='after')
+    def validate_subdomain(self) -> 'SubDomainCreate':
+        if len(self.name) > 63:
+            raise ValueError("Subdomain name must be less than 63 characters")
+        return self
+
+    @model_validator(mode='after')
+    def validate_ttl(self) -> 'SubDomainCreate':
+        if not (60 <= self.ttl <= 86400):
+            raise ValueError("TTL must be between 60 and 86400 seconds")
+        return self
 
 class ZoneCreate(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -353,47 +366,45 @@ async def get_zones(account_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/accounts/{account_id}/zones", response_model=dict)
+@app.post("/accounts/{account_id}/zones", response_model=SuccessResponse)
 async def create_zone(account_id: str, zone: ZoneCreate):
     """Create a new zone for an account"""
     try:
-        # Find account
-        account = next(
-            (acc for acc in config.cloudflare if acc.id == account_id),
-            None
-        )
+        # Get the account
+        account = next((acc for acc in config.cloudflare if acc.id == account_id), None)
         if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+            raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
 
-        # Check for duplicate zone_id
-        for acc in config.cloudflare:
-            for existing_zone in acc.zones:
-                if zone.zone_id == existing_zone.zone_id:
-                    raise HTTPException(status_code=400, detail="Zone ID already exists")
+        # Check if zone already exists
+        if any(z for z in account.zones if z.zone_id == zone.zone_id):
+            raise HTTPException(status_code=400, detail=f"Zone {zone.zone_id} already exists")
 
-        # Create new zone with generated ID
+        # Create new zone
         new_zone = Zone(
             id=str(uuid.uuid4()),
             zone_id=zone.zone_id,
             domain=zone.domain,
-            subdomains=[SubDomain(
-                id=str(uuid.uuid4()),
-                name=s.name,
-                proxied=s.proxied,
-                ttl=s.ttl
-            ) for s in zone.subdomains]
+            subdomains=[
+                SubDomain(
+                    id=str(uuid.uuid4()),
+                    name=subdomain.name,
+                    proxied=subdomain.proxied,
+                    ttl=subdomain.ttl
+                ) for subdomain in zone.subdomains
+            ]
         )
-        
+
+        # Add zone to account
         account.zones.append(new_zone)
         save_config(config)
-        
+
         return create_response(
             error=False,
-            data={"zone": new_zone},
+            data={"zone": new_zone.model_dump()},
             message="Zone created successfully"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/accounts/{account_id}/zones/{zone_id}", response_model=dict)
 async def get_zone(account_id: str, zone_id: str):

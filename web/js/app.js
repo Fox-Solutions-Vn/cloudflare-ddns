@@ -178,11 +178,9 @@ const app = createApp({
         const addZone = async () => {
             try {
                 const zone = {
-                    id: generateUUID(),
                     zone_id: newZone.zone_id,
                     domain: newZone.domain,
                     subdomains: newZone.subdomains.map(s => ({
-                        id: generateUUID(),
                         name: s.name,
                         proxied: s.proxied,
                         ttl: s.ttl
@@ -218,11 +216,9 @@ const app = createApp({
         const updateZone = async () => {
             try {
                 const editedZone = {
-                    id: editZone.id,
                     zone_id: editZone.zone_id,
                     domain: editZone.domain,
                     subdomains: editZone.subdomains.map(s => ({
-                        id: s.id || generateUUID(),
                         name: s.name,
                         proxied: s.proxied,
                         ttl: s.ttl || 1
@@ -296,14 +292,6 @@ const app = createApp({
         };
 
         // Utility functions
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0,
-                    v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
         const selectAccount = (account) => {
             selectedAccount.value = account;
         };
