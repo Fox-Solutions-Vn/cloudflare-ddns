@@ -1,4 +1,8 @@
 #!/bin/bash
 BASH_DIR=$(dirname $(realpath "${BASH_SOURCE}"))
-docker buildx build --platform  linux/ppc64le,linux/s390x,linux/386,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/amd64 --tag timothyjmiller/cloudflare-ddns:latest ${BASH_DIR}/../
+
+rm ${BASH_DIR}/../cloudflare-ddns-manager.tar.gz
+
+docker buildx build --platform linux/amd64 --tag cloudflare-ddns-manager:latest ${BASH_DIR}/../ --load
 # TODO: Support linux/riscv64
+docker save cloudflare-ddns-manager:latest > cloudflare-ddns-manager.tar.gz

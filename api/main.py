@@ -10,7 +10,18 @@ import uuid
 import os
 import re
 
-app = FastAPI()
+# Get API settings from environment variables
+API_HOST = os.environ.get("API_HOST", "0.0.0.0")
+API_PORT = int(os.environ.get("API_PORT", "8000"))
+
+# Get asset versions from environment variables
+ASSET_VERSION = os.environ.get("ASSET_VERSION", "1.0.0")
+
+app = FastAPI(
+    title="Cloudflare DDNS Manager",
+    description="API for managing Cloudflare DDNS configurations",
+    version=ASSET_VERSION
+)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="web"), name="static")
@@ -135,14 +146,12 @@ class ZoneCreate(BaseModel):
     subdomains: List[SubDomainCreate] = Field(default_factory=list)
 
 class Zone(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     zone_id: Annotated[str, Field(
         pattern=r'^[a-f0-9]{32}$',
         description="Cloudflare Zone ID (32 character hex string)"
     )]
-    domain: str = Field(description="Domain name of the zone")
+    domain: str = Field(alias="domain", description="Domain name of the zone")
     subdomains: List[SubDomain] = Field(default_factory=list, description="List of subdomains in this zone")
 
     @model_validator(mode='after')
@@ -173,11 +182,13 @@ class Authentication(BaseModel):
     api_key: Optional[ApiKey] = Field(default=None, description="Cloudflare API Key configuration")
 
 class CloudflareAccount(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     authentication: Authentication = Field(description="Authentication configuration")
     zones: List[Zone] = Field(default_factory=list)
+    a: bool = Field(default=True, description="Enable A record updates")
+    aaaa: bool = Field(default=True, description="Enable AAAA record updates")
+    purgeUnknownRecords: bool = Field(default=False, description="Purge unknown DNS records")
+    ttl: int = Field(default=300, ge=60, le=86400, description="Default TTL for DNS records")
 
     @model_validator(mode='after')
     def validate_unique_zones(self) -> 'CloudflareAccount':
@@ -188,14 +199,8 @@ class CloudflareAccount(BaseModel):
             zone_ids.add(zone.zone_id)
         return self
 
-class Config(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-    
+class Config(BaseModel):    
     cloudflare: List[CloudflareAccount] = Field(default_factory=list)
-    a: bool = Field(default=True, description="Enable A record updates")
-    aaaa: bool = Field(default=True, description="Enable AAAA record updates")
-    purgeUnknownRecords: bool = Field(default=False, description="Purge unknown DNS records")
-    ttl: int = Field(default=300, ge=60, le=86400, description="Default TTL for DNS records")
 
 def load_config() -> Config:
     if CONFIG_FILE.exists():
@@ -220,6 +225,17 @@ def save_config(config: Config):
 
 # Load initial config
 config = load_config()
+
+@app.get("/version")
+async def get_version():
+    """Get the current version of assets and API"""
+    return create_response(
+        error=False,
+        data={
+            "version": ASSET_VERSION
+        },
+        message="Version info retrieved successfully"
+    )
 
 @app.get("/accounts", response_model=dict)
 async def get_accounts():

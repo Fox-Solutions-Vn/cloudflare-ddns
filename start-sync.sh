@@ -7,4 +7,4 @@ source ./venv/bin/activate
 cd $DIR
 set -o pipefail; pip install -r requirements.txt | { grep -v "already satisfied" || :; }
 
-python3 cloudflare-ddns.py
+# python3 cloudflare-ddns.py

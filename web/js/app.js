@@ -2,7 +2,8 @@ const { createApp, ref, reactive, onMounted } = Vue;
 
 const app = createApp({
     setup() {
-        const API_BASE_URL = 'http://127.0.0.1:8000';
+        // Get API base URL from current location
+        const API_BASE_URL = `${window.location.protocol}//${window.location.host}`;
         const accounts = ref([]);
         const selectedAccount = ref(null);
         const errorMessage = ref('');
@@ -13,6 +14,35 @@ const app = createApp({
         let addZoneModal = null;
         let editAccountModal = null;
         let editZoneModal = null;
+
+        // Initialize app
+        const initApp = async () => {
+            try {
+                // Get version from API
+                const versionResponse = await axios.get(`${API_BASE_URL}/version`);
+                const version = versionResponse.data.data.version;
+                
+                // Add version to asset URLs
+                const assets = document.querySelectorAll('link[href^="/static/"], script[src^="/static/"]');
+                assets.forEach(asset => {
+                    const url = new URL(asset.href || asset.src, window.location.origin);
+                    url.searchParams.set('v', version);
+                    if (asset.tagName === 'LINK') {
+                        asset.href = url.toString();
+                    } else {
+                        asset.src = url.toString();
+                    }
+                });
+
+                // Initialize modals
+                initModals();
+                
+                // Fetch initial data
+                await fetchAccounts();
+            } catch (error) {
+                showError(error);
+            }
+        };
 
         // Initialize Bootstrap modals
         const initModals = () => {
@@ -343,8 +373,7 @@ const app = createApp({
 
         // Initialize
         onMounted(() => {
-            initModals();
-            fetchAccounts();
+            initApp();
         });
 
         return {

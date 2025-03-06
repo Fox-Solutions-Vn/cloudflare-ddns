@@ -17,10 +17,14 @@ import sys
 import threading
 import time
 import requests
+from pathlib import Path
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 CONFIG_PATH = os.environ.get('CONFIG_PATH', os.getcwd())
 # Read in all environment variables that have the correct prefix
 ENV_VARS = {key: value for (key, value) in os.environ.items() if key.startswith('CF_DDNS_')}
+CONFIG_FILE = os.path.join(CONFIG_PATH, "config.json")
 
 class GracefulExit:
     def __init__(self):
@@ -258,6 +262,31 @@ def updateIPs(ips):
         # updateLoadBalancer(ip)
 
 
+class ConfigFileHandler(FileSystemEventHandler):
+    def __init__(self):
+        self.last_modified = 0
+        
+    def on_modified(self, event):
+        if event.src_path == CONFIG_FILE:
+            # Add small delay to ensure file is completely written
+            time.sleep(1)
+            current_time = time.time()
+            if current_time - self.last_modified > 1:  # Debounce multiple events
+                self.last_modified = current_time
+                print("📝 Config file changed, updating DNS records...")
+                try:
+                    global config
+                    with open(CONFIG_FILE) as config_file:
+                        if len(ENV_VARS) != 0:
+                            config = json.loads(Template(config_file.read()).safe_substitute(ENV_VARS))
+                        else:
+                            config = json.loads(config_file.read())
+                    updateIPs(getIPs())
+                    print("✅ DNS records updated successfully")
+                except Exception as e:
+                    print(f"❌ Error updating DNS records: {str(e)}")
+
+
 if __name__ == '__main__':
     shown_ipv4_warning = False
     shown_ipv4_warning_secondary = False
@@ -272,7 +301,7 @@ if __name__ == '__main__':
 
     config = None
     try:
-        with open(os.path.join(CONFIG_PATH, "config.json")) as config_file:
+        with open(CONFIG_FILE) as config_file:
             if len(ENV_VARS) != 0:
                 config = json.loads(Template(config_file.read()).safe_substitute(ENV_VARS))
             else:
@@ -290,7 +319,7 @@ if __name__ == '__main__':
             ipv4_enabled = True
             ipv6_enabled = True
             print(
-                "⚙️ Individually disable IPv4 or IPv6 with new config.json options. Read more about it here: https://github.com/timothymiller/cloudflare-ddns/blob/master/README.md")
+                "⚙️ Individually disable IPv4 or IPv6 with new config.json options.")
         try:
             purgeUnknownRecords = config["purgeUnknownRecords"]
         except:
@@ -305,6 +334,13 @@ if __name__ == '__main__':
         if ttl < 30:
             ttl = 1  #
             print("⚙️ TTL is too low - defaulting to 1 (auto)")
+        
+        # Set up config file monitoring
+        event_handler = ConfigFileHandler()
+        observer = Observer()
+        observer.schedule(event_handler, path=CONFIG_PATH, recursive=False)
+        observer.start()
+        
         if (len(sys.argv) > 1):
             if (sys.argv[1] == "--repeat"):
                 if ipv4_enabled and ipv6_enabled:
@@ -322,9 +358,15 @@ if __name__ == '__main__':
                 while True:
                     updateIPs(getIPs())
                     if killer.kill_now.wait(ttl):
+                        observer.stop()
                         break
+                observer.join()
             else:
                 print("❓ Unrecognized parameter '" +
                       sys.argv[1] + "'. Stopping now.")
+                observer.stop()
+                observer.join()
         else:
             updateIPs(getIPs())
+            observer.stop()
+            observer.join()
